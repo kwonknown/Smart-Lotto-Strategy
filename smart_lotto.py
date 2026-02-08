@@ -72,15 +72,48 @@ st.markdown("""
 if 'history' not in st.session_state:
     st.session_state.history = []
 
-# --- 4. 사이드바 설정 ---
+# --- 사이드바: 모드 설정 및 커스텀 제어 ---
 with st.sidebar:
-    st.header("⚙️ 모드 설정")
-    mode = st.radio("전략 선택", ["보수", "중간", "공격"], index=1)
-    if mode == "보수": settings = {'sum':(120,160), 'odds':[3], 'consecutive':3, 'low_high':[3]}
-    elif mode == "중간": settings = {'sum':(100,175), 'odds':[2,3,4], 'consecutive':4, 'low_high':[2,3,4]}
-    else: settings = {'sum':(80,200), 'odds':[1,2,3,4,5], 'consecutive':5, 'low_high':[1,2,3,4,5]}
+    st.header("⚙️ 생성 전략 설정")
+    mode = st.radio("전략 선택", ["보수", "중간", "공격", "사용자 설정"], index=1)
+    
+    # 1. 모드별 고정 값 설정
+    if mode == "보수":
+        settings = {'sum':(120, 160), 'odds':[3], 'consecutive':3, 'low_high':[3]}
+    elif mode == "중간":
+        settings = {'sum':(100, 175), 'odds':[2, 3, 4], 'consecutive':4, 'low_high':[2, 3, 4]}
+    elif mode == "공격":
+        settings = {'sum':(80, 200), 'odds':[1, 2, 3, 4, 5], 'consecutive':5, 'low_high':[1, 2, 3, 4, 5]}
+    else: # 사용자 설정 모드: 직접 수치 제어
+        st.divider()
+        st.subheader("🛠️ 커스텀 필터 제어")
+        sum_range = st.slider("합계 범위 설정", 21, 255, (100, 175))
+        con_limit = st.number_input("연속수 제한 (N연번까지)", 1, 6, 4)
+        
+        # 멀티 셀렉트로 홀짝/저고 비중 선택
+        odd_list = st.multiselect("허용할 홀수 개수", [0,1,2,3,4,5,6], default=[2,3,4])
+        low_high_list = st.multiselect("허용할 저(1~22) 개수", [0,1,2,3,4,5,6], default=[2,3,4])
+        
+        settings = {
+            'sum': sum_range,
+            'odds': odd_list,
+            'consecutive': con_limit,
+            'low_high': low_high_list
+        }
+
+    # 2. 현재 적용 중인 기준 시각화 (표)
     st.divider()
-    st.info(f"**{mode} 모드 작동 중**")
+    st.subheader("📋 적용 기준 요약")
+    filter_info = {
+        "지표": ["합계 범위", "홀짝 비중", "연속수 제한", "저고 비중"],
+        "기준": [
+            f"{settings['sum'][0]} ~ {settings['sum'][1]}",
+            f"{settings['odds']}개 허용",
+            f"{settings['consecutive']}연번 이하",
+            f"{settings['low_high']}개 허용"
+        ]
+    }
+    st.table(pd.DataFrame(filter_info))
 
 # --- 5. 메인: 번호 생성 ---
 if st.button("행운의 5조합 생성하기", use_container_width=True):
