@@ -84,40 +84,61 @@ if st.session_state.history:
     latest = st.session_state.history[0]
     st.subheader(f"✨ 최근 추천 조합 ({latest['mode']} 모드)")
     
-    # 조 이름 리스트 (A조 ~ E조)
     group_names = ["A조", "B조", "C조", "D조", "E조"]
     
+    # 상하좌우 여백 및 열 간격 제어를 위한 CSS
+    st.markdown("""
+        <style>
+        .lotto-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            gap: 10px; /* 공 사이의 간격 고정 */
+        }
+        .lotto-label {
+            width: 50px;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+        .ball {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
     for i, combo in enumerate(latest['numbers']):
-        # 조 이름과 번호를 포함한 전체 컨테이너 (상하 간격을 위해 margin-bottom 추가)
-        st.markdown(f"### {group_names[i]}")
-        cols = st.columns([0.5, 1, 1, 1, 1, 1, 1]) # 조 이름을 위한 앞칸 확보
+        # 한 줄을 HTML 컨테이너로 구성
+        balls_html = "".join([
+            f'<div class="ball" style="background-color:{"orange" if n <= 10 else "blue" if n <= 20 else "red" if n <= 30 else "gray" if n <= 40 else "green"};">{n}</div>'
+            for n in combo
+        ])
         
-        for idx, num in enumerate(combo):
-            # 번호별 색상 로직
-            color = "orange" if num <= 10 else "blue" if num <= 20 else "red" if num <= 30 else "gray" if num <= 40 else "green"
-            
-            # cols[idx+1]에 번호 출력 (상하 간격을 위해 padding 추가)
-            cols[idx+1].markdown(f"""
-                <div style="background-color:{color}; color:white; border-radius:50%; 
-                width:50px; height:50px; display:flex; align-items:center; 
-                justify-content:center; font-weight:bold; font-size:20px; 
-                margin: 10px auto;">
-                    {num}
-                </div>
-            """, unsafe_allow_html=True)
-        st.write("") # 조별 구분을 위한 추가 간격
+        st.markdown(f"""
+            <div class="lotto-row">
+                <div class="lotto-label">{group_names[i]}</div>
+                {balls_html}
+            </div>
+        """, unsafe_allow_html=True)
 
     st.divider()
 
-# --- 히스토리 섹션 (한 조합당 한 줄씩) ---
+# --- 히스토리 섹션 (깔끔한 한 줄 정리) ---
 with st.expander("📜 번호 생성 히스토리 보기"):
     if st.session_state.history:
         for entry in st.session_state.history:
-            st.markdown(f"**📅 생성 시간: {entry['time']} ({entry['mode']} 모드)**")
-            group_labels = ["A조", "B조", "C조", "D조", "E조"]
-            for i, nums in enumerate(entry['numbers']):
-                # 한 조합을 한 줄에 깔끔하게 표시
-                st.write(f"- **{group_labels[i]}:** {', '.join(map(str, nums))}")
-            st.divider()
+            st.markdown(f"**📅 {entry['time']} ({entry['mode']})**")
+            # 히스토리를 표 형태로 깔끔하게 표시
+            history_df = pd.DataFrame(entry['numbers'], 
+                                    index=["A조", "B조", "C조", "D조", "E조"], 
+                                    columns=["1", "2", "3", "4", "5", "6"])
+            st.table(history_df)
     else:
         st.write("아직 생성된 히스토리가 없습니다.")
