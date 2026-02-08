@@ -35,23 +35,32 @@ def generate_lotto_combination(settings):
         return nums
 
 def get_lotto_win_info(drw_no):
-    """동행복권 공식 API 호출 (강화된 헤더 적용)"""
+    """차단 가능성을 최소화한 강력한 API 호출 로직"""
+    # 동행복권 공식 API 주소
     url = f"https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo={drw_no}"
-    # 브라우저 접속으로 완벽하게 위장하기 위한 헤더
+    
+    # 실제 크롬 브라우저가 보내는 것과 거의 흡사한 상세 헤더
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-        "Accept": "application/json, text/javascript, */*; q=0.01"
+        "Referer": "https://www.dhlottery.co.kr/common.do?method=main",
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "X-Requested-With": "XMLHttpRequest"
     }
+    
     try:
-        response = requests.get(url, headers=headers, timeout=10)
+        # verify=False를 통해 SSL 인증서 문제를 무시하고 강제로 연결 시도
+        session = requests.Session()
+        response = session.get(url, headers=headers, timeout=10, verify=False)
+        
         if response.status_code == 200:
             data = response.json()
             if data.get("returnValue") == "success":
                 win_nums = [data[f"drwtNo{i}"] for i in range(1, 7)]
-                bonus_num = data["bnusNo"]
-                return win_nums, bonus_num
+                return win_nums, data["bnusNo"]
     except Exception as e:
-        print(f"API 호출 오류: {e}")
+        # 에러 내용을 화면에 잠깐 띄워 확인 (디버깅 완료 후 삭제 가능)
+        st.error(f"데이터 연결 중 특이사항 발생: {str(e)}")
+    
     return None, None
 
 def check_rank(my, win, bonus):
