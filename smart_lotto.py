@@ -1,8 +1,8 @@
 import streamlit as st
 import random
 import pandas as pd
+import requests
 from datetime import datetime
-pip install requests
 
 # --- 필터링 함수 정의 ---
 def get_max_consecutive(nums):
@@ -130,8 +130,6 @@ if st.session_state.history:
         """, unsafe_allow_html=True)
 
     st.divider()
-
-import requests
 
 # --- 당첨 번호 조회 함수 (동행복권 API) ---
 def get_lotto_win_info(drw_no):
