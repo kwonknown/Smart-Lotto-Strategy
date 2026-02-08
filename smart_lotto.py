@@ -4,9 +4,8 @@ import pandas as pd
 import requests
 from datetime import datetime
 
-# --- 필터링 함수 정의 ---
+# --- 필터링 및 로직 함수 ---
 def get_max_consecutive(nums):
-    """최대 연속수 계산"""
     nums = sorted(nums)
     max_con = 1
     current_con = 1
@@ -18,192 +17,108 @@ def get_max_consecutive(nums):
             current_con = 1
     return max(max_con, current_con)
 
-def generate_lotto_combination(mode_settings):
-    """설정된 필터에 맞는 조합 1개 생성"""
+def generate_lotto_combination(settings):
     while True:
         nums = sorted(random.sample(range(1, 46), 6))
-        
-        # 1. 합계 필터
-        if not (mode_settings['sum'][0] <= sum(nums) <= mode_settings['sum'][1]):
-            continue
-        
-        # 2. 홀짝 필터
+        if not (settings['sum'][0] <= sum(nums) <= settings['sum'][1]): continue
         odds = sum(1 for n in nums if n % 2 != 0)
-        if odds not in mode_settings['odds']:
-            continue
-            
-        # 3. 연속수 필터
-        if get_max_consecutive(nums) > mode_settings['consecutive']:
-            continue
-            
-        # 4. 저고 필터 (1~22: 저, 23~45: 고)
+        if odds not in settings['odds']: continue
+        if get_max_consecutive(nums) > settings['consecutive']: continue
         lows = sum(1 for n in nums if n <= 22)
-        if lows not in mode_settings['low_high']:
-            continue
-            
+        if lows not in settings['low_high']: continue
         return nums
 
-# --- UI 설정 ---
-st.set_page_config(page_title="AI 로또 전략 분석기", layout="wide")
-st.title("🎰 AI 전략 로또 번호 생성기")
-
-# 세션 상태 초기화 (히스토리 저장용)
-if 'history' not in st.session_state:
-    st.session_state.history = []
-
-# --- 사이드바: 모드 설정 ---
-with st.sidebar:
-    st.header("⚙️ 분석 모드 설정")
-    mode = st.radio("전략 선택", ["보수", "중간", "공격"])
-    
-    if mode == "보수":
-        settings = {'sum': (120, 160), 'odds': [3], 'consecutive': 1, 'low_high': [3]}
-    elif mode == "중간":
-        settings = {'sum': (100, 175), 'odds': [2, 3, 4], 'consecutive': 2, 'low_high': [2, 3, 4]}
-    else: # 공격
-        settings = {'sum': (80, 200), 'odds': [1, 2, 3, 4, 5], 'consecutive': 4, 'low_high': [1, 2, 3, 4, 5]}
-
-    st.write(f"**현재 필터 강도:** {mode}")
-    st.info(f"합계: {settings['sum'][0]}~{settings['sum'][1]}\n\n홀짝/저고: {settings['odds']}\n\n연속수: {settings['consecutive']}개 이하")
-
-# --- 메인 화면: 번호 생성 ---
-if st.button("행운의 5조합 생성하기", use_container_width=True):
-    new_combinations = []
-    for _ in range(5):
-        combo = generate_lotto_combination(settings)
-        new_combinations.append(combo)
-    
-    # 히스토리 저장
-    st.session_state.history.insert(0, {
-        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "mode": mode,
-        "numbers": new_combinations
-    })
-
-# --- 결과 출력 (로또 용지 스타일) ---
-if st.session_state.history:
-    latest = st.session_state.history[0]
-    st.subheader(f"✨ 최근 추천 조합 ({latest['mode']} 모드)")
-    
-    group_names = ["A조", "B조", "C조", "D조", "E조"]
-    
-    # 상하좌우 여백 및 열 간격 제어를 위한 CSS
-    st.markdown("""
-        <style>
-        .lotto-row {
-            display: flex;
-            align-items: center;
-            margin-bottom: 10px;
-            gap: 10px; /* 공 사이의 간격 고정 */
-        }
-        .lotto-label {
-            width: 50px;
-            font-size: 1.2rem;
-            font-weight: bold;
-        }
-        .ball {
-            width: 45px;
-            height: 45px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            font-size: 18px;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
-    for i, combo in enumerate(latest['numbers']):
-        # 한 줄을 HTML 컨테이너로 구성
-        balls_html = "".join([
-            f'<div class="ball" style="background-color:{"orange" if n <= 10 else "blue" if n <= 20 else "red" if n <= 30 else "gray" if n <= 40 else "green"};">{n}</div>'
-            for n in combo
-        ])
-        
-        st.markdown(f"""
-            <div class="lotto-row">
-                <div class="lotto-label">{group_names[i]}</div>
-                {balls_html}
-            </div>
-        """, unsafe_allow_html=True)
-
-    st.divider()
-
-# --- 당첨 번호 조회 함수 (동행복권 API) ---
 def get_lotto_win_info(drw_no):
+    """동행복권 API 호출 (오류 방지를 위해 타임아웃 추가)"""
     url = f"https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo={drw_no}"
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=5)
         data = response.json()
         if data.get("returnValue") == "success":
             win_nums = [data[f"drwtNo{i}"] for i in range(1, 7)]
-            bonus_num = data["bnusNo"]
-            return win_nums, bonus_num
-        else:
-            return None, None
-    except:
-        return None, None
+            return win_nums, data["bnusNo"]
+    except Exception as e:
+        print(f"API Error: {e}")
+    return None, None
 
-def check_rank(my_nums, win_nums, bonus_num):
-    match_count = len(set(my_nums) & set(win_nums))
-    if match_count == 6: return "1등"
-    if match_count == 5 and bonus_num in my_nums: return "2등"
-    if match_count == 5: return "3등"
-    if match_count == 4: return "4등"
-    if match_count == 3: return "5등"
+def check_rank(my, win, bonus):
+    match = len(set(my) & set(win))
+    if match == 6: return "1등"
+    if match == 5 and bonus in my: return "2등"
+    if match == 5: return "3등"
+    if match == 4: return "4등"
+    if match == 3: return "5등"
     return "낙첨"
 
-# --- 메인 화면 하단: 당첨 확인 섹션 ---
-st.divider()
-st.header("🎯 과거 당첨 확인 (Back-testing)")
+# --- UI 설정 ---
+st.set_page_config(page_title="Smart-Lotto-Strategy", layout="wide")
+st.title("🎰 Smart Lotto Strategy")
 
-col_input, col_btn = st.columns([3, 1])
-with col_input:
-    target_drw = st.number_input("확인하고 싶은 회차를 입력하세요", min_value=1, value=1118, step=1)
+# CSS: 디자인 디테일 수정
+st.markdown("""
+    <style>
+    .lotto-container { display: flex; align-items: center; margin-bottom: 8px; }
+    .lotto-label { width: 45px; font-weight: bold; font-size: 16px; margin-right: 10px; }
+    .ball { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; 
+            justify-content: center; color: white; font-weight: bold; font-size: 16px; margin-right: 6px; }
+    /* 구분선 사이 간격 조절 */
+    hr { margin: 1.5rem 0 !important; }
+    </style>
+""", unsafe_allow_html=True)
 
-if st.button("이번 회차 당첨 결과 확인하기"):
-    win_nums, bonus_num = get_lotto_win_info(target_drw)
-    
-    if win_nums:
-        st.success(f"✅ {target_drw}회 당첨 번호: {win_nums} + [보너스: {bonus_num}]")
-        
-        if st.session_state.history:
-            # 가장 최근에 생성한 5조합 가져오기
-            latest_nums = st.session_state.history[0]['numbers']
-            results = []
-            group_labels = ["A조", "B조", "C조", "D조", "E조"]
-            
-            for i, my_combo in enumerate(latest_nums):
-                rank = check_rank(my_combo, win_nums, bonus_num)
-                results.append({"조": group_labels[i], "번호": my_combo, "결과": rank})
-            
-            # 결과 테이블 출력
-            res_df = pd.DataFrame(results)
-            st.table(res_df)
-            
-            # 1~5등이 하나라도 있는지 확인
-            winners = [r['결과'] for r in results if r['결과'] != "낙첨"]
-            if winners:
-                st.balloons()
-                st.info(f"🎉 축하합니다! {', '.join(winners)} 당첨이 포함되어 있습니다!")
-            else:
-                st.warning("아쉽게도 이번 회차에는 당첨된 조합이 없습니다. 😅")
-        else:
-            st.error("먼저 번호를 생성해주세요!")
+if 'history' not in st.session_state: st.session_state.history = []
+
+# 사이드바 설정
+with st.sidebar:
+    st.header("⚙️ 모드 설정")
+    mode = st.radio("전략 선택", ["보수", "중간", "공격"], index=1)
+    if mode == "보수": settings = {'sum':(120,160), 'odds':[3], 'consecutive':1, 'low_high':[3]}
+    elif mode == "중간": settings = {'sum':(100,175), 'odds':[2,3,4], 'consecutive':2, 'low_high':[2,3,4]}
+    else: settings = {'sum':(80,200), 'odds':[1,2,3,4,5], 'consecutive':4, 'low_high':[1,2,3,4,5]}
+
+# 번호 생성 버튼
+if st.button("행운의 5조합 생성하기", use_container_width=True):
+    new_picks = [generate_lotto_combination(settings) for _ in range(5)]
+    st.session_state.history.insert(0, {"time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "mode": mode, "numbers": new_picks})
+
+# 최신 번호 출력
+if st.session_state.history:
+    latest = st.session_state.history[0]
+    st.subheader(f"✨ 최근 추천 ({latest['mode']} 모드)")
+    for i, combo in enumerate(latest['numbers']):
+        balls_html = "".join([f'<div class="ball" style="background-color:{"#fbc400" if n<=10 else "#69c8f2" if n<=20 else "#ff7272" if n<=30 else "#aaaaaa" if n<=40 else "#b0d840"};">{n}</div>' for n in combo])
+        st.markdown(f'<div class="lotto-container"><div class="lotto-label">{"ABCDE"[i]}조</div>{balls_html}</div>', unsafe_allow_html=True)
+
+# 🎯 과거 당첨 확인 섹션
+st.divider() # 줄이 겹치지 않게 하나만 사용
+st.header("🎯 과거 당첨 확인")
+col1, col2 = st.columns([3, 1])
+with col1:
+    target_drw = st.number_input("조회할 회차를 입력하세요", min_value=1, value=1150) # 최근 회차 위주로 기본값 세팅
+
+if st.button("결과 확인"):
+    win_n, bonus_n = get_lotto_win_info(target_drw)
+    if win_n and st.session_state.history:
+        st.success(f"✅ {target_drw}회 당첨번호: {win_n} + 보너스 {bonus_n}")
+        res = []
+        for i, c in enumerate(st.session_state.history[0]['numbers']):
+            res.append({"조": "ABCDE"[i]+"조", "번호": str(c), "결과": check_rank(c, win_n, bonus_n)})
+        st.table(pd.DataFrame(res))
+        if any(r['결과'] != "낙첨" for r in res): st.balloons()
+    elif not st.session_state.history:
+        st.warning("먼저 '행운의 5조합 생성하기' 버튼을 눌러 번호를 생성해주세요.")
     else:
-        st.error("회차 정보를 불러오지 못했습니다. 회차 번호를 확인해주세요.")
+        st.error("회차 정보를 불러오지 못했습니다. 인터넷 연결이나 회차 번호를 확인해주세요.")
 
-# --- 히스토리 섹션 (깔끔한 한 줄 정리) ---
+# 📜 히스토리 섹션 (위에도 줄 추가)
+st.divider()
 with st.expander("📜 번호 생성 히스토리 보기"):
     if st.session_state.history:
-        for entry in st.session_state.history:
-            st.markdown(f"**📅 {entry['time']} ({entry['mode']})**")
-            # 히스토리를 표 형태로 깔끔하게 표시
-            history_df = pd.DataFrame(entry['numbers'], 
-                                    index=["A조", "B조", "C조", "D조", "E조"], 
-                                    columns=["1", "2", "3", "4", "5", "6"])
-            st.table(history_df)
+        for h in st.session_state.history:
+            st.write(f"**📅 {h['time']} ({h['mode']})**")
+            # 표 가독성을 위해 데이터프레임 인덱스 설정
+            df_h = pd.DataFrame(h['numbers'], index=[f"{"ABCDE"[i]}조" for i in range(5)], columns=[f"번호{j+1}" for j in range(6)])
+            st.table(df_h)
+            st.write("") # 히스토리 간 간격
     else:
         st.write("아직 생성된 히스토리가 없습니다.")
