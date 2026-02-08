@@ -130,6 +130,72 @@ if st.session_state.history:
 
     st.divider()
 
+import requests
+
+# --- 당첨 번호 조회 함수 (동행복권 API) ---
+def get_lotto_win_info(drw_no):
+    url = f"https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo={drw_no}"
+    try:
+        response = requests.get(url)
+        data = response.json()
+        if data.get("returnValue") == "success":
+            win_nums = [data[f"drwtNo{i}"] for i in range(1, 7)]
+            bonus_num = data["bnusNo"]
+            return win_nums, bonus_num
+        else:
+            return None, None
+    except:
+        return None, None
+
+def check_rank(my_nums, win_nums, bonus_num):
+    match_count = len(set(my_nums) & set(win_nums))
+    if match_count == 6: return "1등"
+    if match_count == 5 and bonus_num in my_nums: return "2등"
+    if match_count == 5: return "3등"
+    if match_count == 4: return "4등"
+    if match_count == 3: return "5등"
+    return "낙첨"
+
+# --- 메인 화면 하단: 당첨 확인 섹션 ---
+st.divider()
+st.header("🎯 과거 당첨 확인 (Back-testing)")
+
+col_input, col_btn = st.columns([3, 1])
+with col_input:
+    target_drw = st.number_input("확인하고 싶은 회차를 입력하세요", min_value=1, value=1118, step=1)
+
+if st.button("이번 회차 당첨 결과 확인하기"):
+    win_nums, bonus_num = get_lotto_win_info(target_drw)
+    
+    if win_nums:
+        st.success(f"✅ {target_drw}회 당첨 번호: {win_nums} + [보너스: {bonus_num}]")
+        
+        if st.session_state.history:
+            # 가장 최근에 생성한 5조합 가져오기
+            latest_nums = st.session_state.history[0]['numbers']
+            results = []
+            group_labels = ["A조", "B조", "C조", "D조", "E조"]
+            
+            for i, my_combo in enumerate(latest_nums):
+                rank = check_rank(my_combo, win_nums, bonus_num)
+                results.append({"조": group_labels[i], "번호": my_combo, "결과": rank})
+            
+            # 결과 테이블 출력
+            res_df = pd.DataFrame(results)
+            st.table(res_df)
+            
+            # 1~5등이 하나라도 있는지 확인
+            winners = [r['결과'] for r in results if r['결과'] != "낙첨"]
+            if winners:
+                st.balloons()
+                st.info(f"🎉 축하합니다! {', '.join(winners)} 당첨이 포함되어 있습니다!")
+            else:
+                st.warning("아쉽게도 이번 회차에는 당첨된 조합이 없습니다. 😅")
+        else:
+            st.error("먼저 번호를 생성해주세요!")
+    else:
+        st.error("회차 정보를 불러오지 못했습니다. 회차 번호를 확인해주세요.")
+
 # --- 히스토리 섹션 (깔끔한 한 줄 정리) ---
 with st.expander("📜 번호 생성 히스토리 보기"):
     if st.session_state.history:
