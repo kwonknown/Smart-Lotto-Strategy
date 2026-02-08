@@ -29,6 +29,32 @@ def generate_lotto_combination(settings):
         if lows not in settings['low_high']: continue
         return nums
 
+def estimate_combination_count(settings):
+    """필터 조건을 통과할 확률을 계산하여 전체 조합 수 추정"""
+    total_combinations = 8145060
+    sample_size = 10000 # 1만 개 샘플 테스트
+    pass_count = 0
+    
+    for _ in range(sample_size):
+        nums = sorted(random.sample(range(1, 46), 6))
+        # 필터 조건 체크
+        if not (settings['sum'][0] <= sum(nums) <= settings['sum'][1]): continue
+        if sum(1 for n in nums if n % 2 != 0) not in settings['odds']: continue
+        if get_max_consecutive(nums) > settings['consecutive']: continue
+        if sum(1 for n in nums if n <= 22) not in settings['low_high']: continue
+        pass_count += 1
+    
+    # 통과 확률 계산
+    pass_rate = pass_count / sample_size
+    estimated_count = int(total_combinations * pass_rate)
+    return estimated_count, pass_rate
+
+# --- 사이드바 또는 메인 화면에 출력 ---
+st.sidebar.divider()
+est_count, est_rate = estimate_combination_count(settings)
+st.sidebar.metric("📊 전략의 희소성", f"{est_rate*100:.1f}%")
+st.sidebar.write(f"전체 814만 개 중 약 **{est_count:,}개**의 조합이 이 필터를 통과합니다.")
+
 # --- 2. [변경됨] CSV 기반 DB 조회 함수 ---
 def get_lotto_win_info_from_db(drw_no):
     file_path = 'lotto_data.csv'
