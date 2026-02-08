@@ -88,7 +88,7 @@ st.divider()
 st.header("🎯 과거 당첨 확인")
 col1, col2 = st.columns([3, 1])
 with col1:
-    target_drw = st.number_input("조회할 회차 입력", min_value=1, value=1200) # 최근 회차
+    target_drw = st.number_input("조회할 회차 입력", min_value=1, value=1210) # 최근 회차
 
 if st.button("결과 확인"):
     win_n, bonus_n = get_lotto_win_info(target_drw)
