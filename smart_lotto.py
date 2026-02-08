@@ -57,7 +57,7 @@ def check_rank(my, win, bonus):
 
 # --- 3. UI 및 디자인 설정 ---
 st.set_page_config(page_title="Smart-Lotto-Strategy", layout="wide")
-st.title("🎰 Smart Lotto Strategy (DB Mode)")
+st.title("🎰 Smart Lotto Strategy")
 
 st.markdown("""
     <style>
