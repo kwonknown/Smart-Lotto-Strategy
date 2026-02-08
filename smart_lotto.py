@@ -117,6 +117,76 @@ if st.button("결과 확인"):
         else:
             st.error(f"⚠️ {target_drw}회 정보가 CSV 파일에 없습니다. 내용을 업데이트해주세요.")
 
+# --- [추가/수정된 로직] 전수 조사 함수 ---
+def analyze_all_history(my_combinations):
+    file_path = 'lotto_data.csv'
+    if not os.path.exists(file_path):
+        return None
+    
+    df = pd.read_csv(file_path)
+    summary_results = []
+
+    # 생성된 5개 조합(A~E조) 각각에 대해 전수 조사
+    for idx, my_nums in enumerate(my_combinations):
+        my_set = set(my_nums)
+        label = "ABCDE"[idx] + "조"
+        
+        counts = {"1등": 0, "2등": 0, "3등": 0, "4등": 0, "5등": 0}
+        details = [] # 당첨된 사례 저장용
+
+        for _, row in df.iterrows():
+            win_nums = set(row[1:7].astype(int))
+            bonus = int(row[7])
+            match_count = len(my_set & win_nums)
+
+            rank = None
+            if match_count == 6: rank = "1등"
+            elif match_count == 5 and bonus in my_set: rank = "2등"
+            elif match_count == 5: rank = "3등"
+            elif match_count == 4: rank = "4등"
+            elif match_count == 3: rank = "5등"
+
+            if rank:
+                counts[rank] += 1
+                # 1, 2, 3등 같은 고액 당첨은 기록 보관
+                if rank in ["1등", "2등", "3등"]:
+                    details.append(f"{int(row['회차'])}회({rank})")
+
+        summary_results.append({
+            "조": label,
+            "번호": str(my_nums),
+            "1등": counts["1등"],
+            "2등": counts["2등"],
+            "3등": counts["3등"],
+            "4등": counts["4등"],
+            "5등": counts["5등"],
+            "고액당첨이력": ", ".join(details) if details else "없음"
+        })
+    
+    return pd.DataFrame(summary_results)
+
+# --- UI 부분 수정 (결과 확인 버튼 클릭 시) ---
+st.divider()
+st.header("📊 역대 전수 조사 (1회~최신)")
+if st.button("과거 모든 회차와 대조하기", use_container_width=True):
+    if not st.session_state.history:
+        st.warning("번호를 먼저 생성해주세요.")
+    else:
+        with st.spinner('역대 데이터를 분석 중입니다...'):
+            latest_picks = st.session_state.history[0]['numbers']
+            analysis_df = analyze_all_history(latest_picks)
+            
+            if analysis_df is not None:
+                st.success("✅ 분석 완료! 생성된 번호의 과거 당첨 기록입니다.")
+                st.table(analysis_df)
+                
+                # 고액 당첨 이력이 있다면 축하 메시지
+                if analysis_df[["1등", "2등", "3등"]].sum().sum() > 0:
+                    st.balloons()
+                    st.info("💡 와우! 과거에 고액 당첨 이력이 있는 번호가 포함되어 있습니다.")
+            else:
+                st.error("lotto_data.csv 파일을 찾을 수 없습니다.")
+
 # --- 7. 히스토리 ---
 st.divider()
 with st.expander("📜 히스토리 보기"):
