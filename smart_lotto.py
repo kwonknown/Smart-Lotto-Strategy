@@ -2,6 +2,7 @@ import streamlit as st
 import random
 import pandas as pd
 from datetime import datetime
+pip install requests
 
 # --- 필터링 함수 정의 ---
 def get_max_consecutive(nums):
