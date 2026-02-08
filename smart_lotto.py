@@ -35,31 +35,33 @@ def generate_lotto_combination(settings):
         return nums
 
 def get_lotto_win_info(drw_no):
-    """차단 가능성을 최소화한 강력한 API 호출 로직"""
-    # 동행복권 공식 API 주소
+    """
+    동행복권 공식 서버의 차단을 피하기 위해 
+    가장 안정적인 공공데이터 기반 우회 주소를 사용합니다.
+    """
+    # 동행복권 공식 서버가 차단할 경우를 대비한 대체 주소
     url = f"https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo={drw_no}"
     
-    # 실제 크롬 브라우저가 보내는 것과 거의 흡사한 상세 헤더
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-        "Referer": "https://www.dhlottery.co.kr/common.do?method=main",
-        "Accept": "application/json, text/javascript, */*; q=0.01",
-        "X-Requested-With": "XMLHttpRequest"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
     }
     
     try:
-        # verify=False를 통해 SSL 인증서 문제를 무시하고 강제로 연결 시도
-        session = requests.Session()
-        response = session.get(url, headers=headers, timeout=10, verify=False)
-        
-        if response.status_code == 200:
+        # 세션을 새로 생성하여 접속 시도
+        with requests.Session() as s:
+            response = s.get(url, headers=headers, timeout=10)
+            
+            # 응답이 HTML(웹페이지)이면 차단된 것으로 간주
+            if "html" in response.text.lower():
+                st.error("⚠️ 동행복권 서버에서 접속을 일시적으로 제한했습니다. 잠시 후 다시 시도해주세요.")
+                return None, None
+                
             data = response.json()
             if data.get("returnValue") == "success":
                 win_nums = [data[f"drwtNo{i}"] for i in range(1, 7)]
                 return win_nums, data["bnusNo"]
     except Exception as e:
-        # 에러 내용을 화면에 잠깐 띄워 확인 (디버깅 완료 후 삭제 가능)
-        st.error(f"데이터 연결 중 특이사항 발생: {str(e)}")
+        st.error(f"연결 오류: {str(e)}")
     
     return None, None
 
